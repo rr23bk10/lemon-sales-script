@@ -1,331 +1,308 @@
-import { useState, useRef } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Copy,
-  ChevronDown,
-  ChevronUp,
-  MessageCircle,
-  Download,
-  Share2,
-  Lightbulb,
-} from "lucide-react";
-import { toast } from "sonner";
-import { salesScripts, SalesScript } from "@/lib/salesScripts";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MessageCircle, Settings } from "lucide-react";
+import { salesScripts } from "@/lib/salesScripts";
+import { useEditableScripts } from "@/hooks/useEditableScripts";
+import { MessageEditor } from "@/components/MessageEditor";
+import { ServiceManager } from "@/components/ServiceManager";
 import { AISuggestions } from "@/components/AISuggestions";
+import { toast } from "sonner";
 
 export default function Home() {
-  const [selectedScript, setSelectedScript] = useState<SalesScript>(salesScripts[0]);
-  const [expandedStage, setExpandedStage] = useState<string | null>(
-    selectedScript.stages[0]?.id || null
-  );
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [selectedSuggestion, setSelectedSuggestion] = useState<string | null>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
+  const {
+    scripts,
+    updateMessage,
+    addAlternative,
+    removeAlternative,
+    addNewService,
+    deleteService,
+    exportData,
+    importData,
+    resetToDefault,
+  } = useEditableScripts(salesScripts);
 
-  const copyToClipboard = (text: string, id: string) => {
+  const [selectedService, setSelectedService] = useState(scripts[0]?.id || "");
+  const [expandedStage, setExpandedStage] = useState<string | null>(null);
+  const [showAI, setShowAI] = useState(false);
+
+  const currentService = scripts.find((s) => s.id === selectedService);
+
+  const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    toast.success("Mensagem copiada! 📋");
-    setTimeout(() => setCopiedId(null), 2000);
+    toast.success("Copiado para a área de transferência!");
+  };
+
+  const copyAllMessages = () => {
+    if (!currentService) return;
+    const allMessages = currentService.stages
+      .flatMap((stage) =>
+        stage.messages
+          .filter((msg) => msg.role === "seller")
+          .map((msg) => `${stage.title}\n${msg.text}`)
+      )
+      .join("\n\n---\n\n");
+    copyToClipboard(allMessages);
   };
 
   const sendToWhatsApp = (text: string) => {
     const encodedText = encodeURIComponent(text);
     window.open(`https://wa.me/?text=${encodedText}`, "_blank");
-    toast.success("Abrindo WhatsApp! 💬");
-  };
-
-  const exportToPDF = () => {
-    const content = contentRef.current?.innerText || "";
-    const element = document.createElement("a");
-    const file = new Blob([content], { type: "text/plain" });
-    element.href = URL.createObjectURL(file);
-    element.download = `roteiro-${selectedScript.id}.txt`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-    toast.success("Roteiro exportado! 📥");
-  };
-
-  const copyAllMessages = () => {
-    let allText = `ROTEIRO DE VENDAS - ${selectedScript.name.toUpperCase()}\n\n`;
-    selectedScript.stages.forEach((stage) => {
-      allText += `\n${stage.title}\n${stage.description}\n`;
-      allText += "─".repeat(50) + "\n";
-      stage.messages.forEach((msg) => {
-        allText += `\n[${msg.role.toUpperCase()}]\n${msg.text}\n`;
-        if (msg.notes) allText += `💡 ${msg.notes}\n`;
-      });
-    });
-
-    navigator.clipboard.writeText(allText);
-    toast.success("Todas as mensagens copiadas! 📋");
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 p-4 md:p-8">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="mb-12 text-center">
-          <div className="inline-block mb-4 px-4 py-2 bg-gradient-to-r from-green-100 to-blue-100 rounded-full border border-green-200">
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-blue-600 text-sm font-bold">
-              💬 ROTEIRO INTELIGENTE DE VENDAS
-            </span>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-emerald-50">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-white border-b border-green-200 shadow-sm">
+        <div className="container py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                <span className="text-xs font-semibold text-green-600 uppercase tracking-wide">
+                  Roteiro Inteligente de Vendas
+                </span>
+              </div>
+              <h1 className="text-3xl font-bold">
+                Roteiro de Vendas <span className="text-green-600">WhatsApp</span>
+              </h1>
+              <p className="text-gray-600 mt-1">
+                Abordagem completa para fechar vendas com IA, múltiplos serviços e integração com WhatsApp
+              </p>
+            </div>
           </div>
-          <h1 className="text-5xl md:text-6xl font-bold text-slate-900 mb-4 leading-tight">
-            Roteiro de Vendas <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-blue-600">WhatsApp</span>
-          </h1>
-          <p className="text-xl text-slate-600 mb-8 max-w-2xl mx-auto">
-            Abordagem completa para fechar vendas com IA, múltiplos serviços e integração com WhatsApp
-          </p>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div className="px-4 py-3 bg-white rounded-lg shadow-sm border border-slate-200">
-              <p className="text-2xl font-bold text-green-600">4</p>
-              <p className="text-xs text-slate-600 mt-1">Serviços</p>
+          <div className="grid grid-cols-4 gap-4 mt-6">
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200">
+              <p className="text-2xl font-bold text-green-600">{scripts.length}</p>
+              <p className="text-sm text-gray-600">Serviços</p>
             </div>
-            <div className="px-4 py-3 bg-white rounded-lg shadow-sm border border-slate-200">
-              <p className="text-2xl font-bold text-blue-600">50+</p>
-              <p className="text-xs text-slate-600 mt-1">Mensagens</p>
+            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-lg border border-blue-200">
+              <p className="text-2xl font-bold text-blue-600">
+                {scripts.reduce((acc, s) => acc + s.stages.reduce((a, st) => a + st.messages.length, 0), 0)}+
+              </p>
+              <p className="text-sm text-gray-600">Mensagens</p>
             </div>
-            <div className="px-4 py-3 bg-white rounded-lg shadow-sm border border-slate-200">
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-lg border border-purple-200">
               <p className="text-2xl font-bold text-purple-600">IA</p>
-              <p className="text-xs text-slate-600 mt-1">Sugestões</p>
+              <p className="text-sm text-gray-600">Sugestões</p>
             </div>
-            <div className="px-4 py-3 bg-white rounded-lg shadow-sm border border-slate-200">
+            <div className="bg-gradient-to-br from-orange-50 to-amber-50 p-4 rounded-lg border border-orange-200">
               <p className="text-2xl font-bold text-orange-600">∞</p>
-              <p className="text-xs text-slate-600 mt-1">Customizável</p>
+              <p className="text-sm text-gray-600">Customizável</p>
             </div>
           </div>
         </div>
+      </header>
 
-        {/* Service Selector */}
-        <div className="mb-8">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">Escolha o Serviço:</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {salesScripts.map((script) => (
-              <button
-                key={script.id}
-                onClick={() => {
-                  setSelectedScript(script);
-                  setExpandedStage(script.stages[0]?.id || null);
-                }}
-                className={`p-4 rounded-lg border-2 transition-all text-left ${
-                  selectedScript.id === script.id
-                    ? "border-green-500 bg-green-50 shadow-lg"
-                    : "border-slate-200 bg-white hover:border-green-300 hover:shadow-md"
-                }`}
-              >
-                <div className="text-2xl mb-2">{script.icon}</div>
-                <h3 className="font-bold text-slate-900">{script.name}</h3>
-                <p className="text-xs text-slate-600 mt-1">{script.description}</p>
-                <p className="text-sm font-semibold text-green-600 mt-2">{script.price}</p>
-              </button>
-            ))}
-          </div>
-        </div>
+      {/* Main Content */}
+      <main className="container py-8">
+        <Tabs defaultValue="editor" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 bg-white border border-green-200">
+            <TabsTrigger value="editor" className="flex items-center gap-2">
+              <MessageCircle className="w-4 h-4" />
+              Editor de Roteiros
+            </TabsTrigger>
+            <TabsTrigger value="manager" className="flex items-center gap-2">
+              <Settings className="w-4 h-4" />
+              Gerenciador
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Action Buttons */}
-        <div className="mb-8 flex flex-wrap gap-3">
-          <Button
-            onClick={copyAllMessages}
-            className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
-          >
-            <Copy className="w-4 h-4" />
-            Copiar Tudo
-          </Button>
-          <Button
-            onClick={exportToPDF}
-            className="bg-orange-600 hover:bg-orange-700 text-white gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Exportar
-          </Button>
-          <Button
-            onClick={() => sendToWhatsApp(`Confira nosso roteiro de vendas para ${selectedScript.name}!`)}
-            className="bg-green-600 hover:bg-green-700 text-white gap-2"
-          >
-            <MessageCircle className="w-4 h-4" />
-            Compartilhar
-          </Button>
-        </div>
+          {/* Editor Tab */}
+          <TabsContent value="editor" className="space-y-6">
+            {/* Seletor de Serviço */}
+            <div className="bg-white p-6 rounded-lg border border-green-200 shadow-sm">
+              <h2 className="text-lg font-bold mb-4">Escolha o Serviço:</h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {scripts.map((service) => (
+                  <button
+                    key={service.id}
+                    onClick={() => setSelectedService(service.id)}
+                    className={`p-4 rounded-lg border-2 transition-all text-left ${
+                      selectedService === service.id
+                        ? "border-green-500 bg-green-50 shadow-md"
+                        : "border-gray-200 hover:border-green-300 bg-white"
+                    }`}
+                  >
+                    <p className="text-2xl mb-1">{service.icon}</p>
+                    <p className="font-semibold text-sm">{service.name}</p>
+                    <p className="text-xs text-gray-500 mt-1">{service.price}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
 
-        {/* Main Content */}
-        <div ref={contentRef} className="space-y-4">
-          {selectedScript.stages.map((stage) => (
-            <Card
-              key={stage.id}
-              className="overflow-hidden transition-all duration-300 hover:shadow-lg border-l-4 border-l-green-500"
-            >
-              <button
-                onClick={() =>
-                  setExpandedStage(expandedStage === stage.id ? null : stage.id)
-                }
-                className="w-full p-6 flex items-center justify-between bg-gradient-to-r from-white to-slate-50 hover:from-slate-50 hover:to-slate-100 transition-colors"
-              >
-                <div className="text-left flex-1">
-                  <h2 className="text-xl font-bold text-slate-900 mb-2">{stage.title}</h2>
-                  <p className="text-sm text-slate-600">{stage.description}</p>
+            {currentService && (
+              <>
+                {/* Ações Rápidas */}
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    onClick={copyAllMessages}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    📋 Copiar Tudo
+                  </Button>
+                  <Button
+                    onClick={exportData}
+                    className="bg-orange-600 hover:bg-orange-700"
+                  >
+                    📥 Exportar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowAI(!showAI)}
+                    className="border-purple-300 text-purple-700"
+                  >
+                    {showAI ? "Ocultar" : "Ver"} Sugestões de IA
+                  </Button>
                 </div>
-                {expandedStage === stage.id ? (
-                  <ChevronUp className="w-6 h-6 text-slate-400 flex-shrink-0 ml-4" />
-                ) : (
-                  <ChevronDown className="w-6 h-6 text-slate-400 flex-shrink-0 ml-4" />
+
+                {/* IA Suggestions */}
+                {showAI && (
+                  <AISuggestions
+                    service={currentService}
+                    onSelectSuggestion={(text) => copyToClipboard(text)}
+                  />
                 )}
-              </button>
 
-              {expandedStage === stage.id && (
-                <CardContent className="pt-0 pb-6 px-6 bg-slate-50 border-t">
-                  <div className="space-y-6 mt-6">
-                    {stage.messages.map((message) => (
-                      <div key={message.id} className="space-y-3">
-                        <div
-                          className={`flex ${
-                            message.role === "seller" ? "justify-end" : "justify-start"
-                          }`}
-                        >
-                          <div
-                            className={`max-w-xs lg:max-w-md ${
-                              message.role === "seller"
-                                ? "bg-gradient-to-br from-green-500 to-green-600 text-white rounded-3xl rounded-tr-lg shadow-md"
-                                : "bg-white text-slate-900 rounded-3xl rounded-tl-lg border-2 border-slate-200"
-                            } p-4`}
-                          >
-                            <p className="text-sm leading-relaxed whitespace-pre-wrap font-medium">
-                              {message.text}
-                            </p>
-                            {message.notes && (
-                              <div className="mt-3 pt-3 border-t border-current border-opacity-20">
-                                <p
-                                  className={`text-xs ${
-                                    message.role === "seller"
-                                      ? "text-green-100"
-                                      : "text-slate-500"
-                                  } italic`}
-                                >
-                                  💡 {message.notes}
-                                </p>
-                              </div>
-                            )}
-                          </div>
+                {/* Stages */}
+                <div className="space-y-4">
+                  {currentService.stages.map((stage) => (
+                    <div
+                      key={stage.id}
+                      className="bg-white border border-green-200 rounded-lg overflow-hidden shadow-sm"
+                    >
+                      <button
+                        onClick={() =>
+                          setExpandedStage(
+                            expandedStage === stage.id ? null : stage.id
+                          )
+                        }
+                        className="w-full p-4 flex items-center justify-between hover:bg-green-50 transition-colors"
+                      >
+                        <div className="text-left">
+                          <h3 className="font-bold text-lg">{stage.title}</h3>
+                          <p className="text-sm text-gray-600">
+                            {stage.description}
+                          </p>
                         </div>
+                        <div className="text-2xl">
+                          {expandedStage === stage.id ? "▼" : "▶"}
+                        </div>
+                      </button>
 
-                        {/* Action Buttons for Seller Messages */}
-                        {message.role === "seller" && (
-                          <div
-                            className={`flex gap-2 ${
-                              message.role === "seller" ? "justify-end" : "justify-start"
-                            }`}
-                          >
-                            <button
-                              onClick={() => copyToClipboard(message.text, message.id)}
-                              className={`inline-flex items-center gap-2 text-xs font-medium px-3 py-1 rounded transition-all ${
-                                copiedId === message.id
-                                  ? "bg-green-600 text-white"
-                                  : "bg-slate-200 text-slate-700 hover:bg-slate-300"
-                              }`}
-                            >
-                              <Copy className="w-3 h-3" />
-                              {copiedId === message.id ? "Copiado!" : "Copiar"}
-                            </button>
-                            <button
-                              onClick={() => sendToWhatsApp(message.text)}
-                              className="inline-flex items-center gap-2 text-xs font-medium px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700 transition-all"
-                            >
-                              <MessageCircle className="w-3 h-3" />
-                              WhatsApp
-                            </button>
-                          </div>
-                        )}
+                      {expandedStage === stage.id && (
+                        <div className="p-4 bg-green-50 border-t border-green-200 space-y-4">
+                          {stage.messages.map((message) => (
+                            <div key={message.id} className="space-y-3">
+                              {/* Mensagem */}
+                              <MessageEditor
+                                message={message}
+                                onUpdate={(newText) =>
+                                  updateMessage(
+                                    currentService.id,
+                                    stage.id,
+                                    message.id,
+                                    newText
+                                  )
+                                }
+                                onAddAlternative={(alt) =>
+                                  addAlternative(
+                                    currentService.id,
+                                    stage.id,
+                                    message.id,
+                                    alt
+                                  )
+                                }
+                                onRemoveAlternative={(idx) =>
+                                  removeAlternative(
+                                    currentService.id,
+                                    stage.id,
+                                    message.id,
+                                    idx
+                                  )
+                                }
+                              />
 
-                        {/* Alternatives */}
-                        {message.alternatives && message.alternatives.length > 0 && (
-                          <div className="ml-4 space-y-2">
-                            <p className="text-xs font-semibold text-slate-600">
-                              📝 Alternativas:
-                            </p>
-                            {message.alternatives.map((alt, idx) => (
-                              <button
-                                key={idx}
-                                onClick={() => copyToClipboard(alt, `${message.id}-alt-${idx}`)}
-                                className="w-full text-left p-2 bg-slate-100 hover:bg-slate-200 rounded text-xs text-slate-700 transition-colors"
-                              >
-                                {alt.substring(0, 80)}
-                                {alt.length > 80 ? "..." : ""}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                              {/* Botões de Ação */}
+                              {message.role === "seller" && (
+                                <div className="flex gap-2 ml-4">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => copyToClipboard(message.text)}
+                                    className="bg-green-600 hover:bg-green-700"
+                                  >
+                                    📋 Copiar
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => sendToWhatsApp(message.text)}
+                                    className="bg-green-500 hover:bg-green-600"
+                                  >
+                                    💬 WhatsApp
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </TabsContent>
 
-                    {/* AI Suggestions */}
-                    <AISuggestions
-                      currentStage={stage.id}
-                      currentMessageRole="seller"
-                      onSelectSuggestion={(suggestion) => {
-                        setSelectedSuggestion(suggestion);
-                        copyToClipboard(suggestion, "ai-suggestion");
-                      }}
-                    />
-                  </div>
-                </CardContent>
-              )}
-            </Card>
-          ))}
-        </div>
+          {/* Manager Tab */}
+          <TabsContent value="manager">
+            <ServiceManager
+              services={scripts}
+              onAddService={addNewService}
+              onDeleteService={deleteService}
+              onExport={exportData}
+              onImport={importData}
+              onReset={resetToDefault}
+            />
+          </TabsContent>
+        </Tabs>
+      </main>
 
-        {/* Tips Section */}
-        <Card className="mt-12 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-blue-900">
-              <Lightbulb className="w-5 h-5" />
-              Dicas Importantes para Sucesso
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-slate-700 space-y-3">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="p-3 bg-white rounded-lg border border-blue-200">
-                <p className="font-semibold text-sm mb-1">✅ Personalize Sempre</p>
-                <p className="text-xs">Use o nome do cliente, seu segmento e necessidades específicas.</p>
-              </div>
-              <div className="p-3 bg-white rounded-lg border border-blue-200">
-                <p className="font-semibold text-sm mb-1">✅ Seja Genuíno</p>
-                <p className="text-xs">O roteiro é um guia. Adapte conforme a conversa fluir.</p>
-              </div>
-              <div className="p-3 bg-white rounded-lg border border-blue-200">
-                <p className="font-semibold text-sm mb-1">✅ Escute Mais</p>
-                <p className="text-xs">Faça perguntas e ouça as respostas. Constrói confiança.</p>
-              </div>
-              <div className="p-3 bg-white rounded-lg border border-blue-200">
-                <p className="font-semibold text-sm mb-1">✅ Use Emojis</p>
-                <p className="text-xs">Deixam a conversa amigável, mas não exagere!</p>
-              </div>
-              <div className="p-3 bg-white rounded-lg border border-blue-200">
-                <p className="font-semibold text-sm mb-1">✅ Respeite o Tempo</p>
-                <p className="text-xs">Se o cliente não tem tempo, agende um melhor momento.</p>
-              </div>
-              <div className="p-3 bg-white rounded-lg border border-blue-200">
-                <p className="font-semibold text-sm mb-1">✅ Sempre um CTA</p>
-                <p className="text-xs">Termine cada etapa com uma ação clara.</p>
-              </div>
+      {/* Footer */}
+      <footer className="bg-white border-t border-green-200 mt-12">
+        <div className="container py-8">
+          <div className="grid grid-cols-3 gap-8 mb-8">
+            <div>
+              <h4 className="font-bold mb-2">💡 Dicas Importantes</h4>
+              <ul className="text-sm text-gray-600 space-y-1">
+                <li>✅ Personalize sempre com nome do cliente</li>
+                <li>✅ Seja genuíno e adapte conforme conversa</li>
+                <li>✅ Escute mais do que fale</li>
+              </ul>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Footer */}
-        <div className="mt-12 text-center text-slate-600 text-sm border-t border-slate-200 pt-8">
-          <p className="font-semibold text-slate-900 mb-2">Desenvolvido com ❤️ pela Lemon CP</p>
-          <p className="mb-4">
-            Dúvidas? Entre em contato: 📱 <span className="font-semibold">43 98423-4418</span> | WhatsApp
-          </p>
-          <p className="text-xs text-slate-500">
-            © 2026 Lemon CP. Todos os direitos reservados. | Roteiro Inteligente de Vendas
-          </p>
+            <div>
+              <h4 className="font-bold mb-2">🎯 Recursos</h4>
+              <ul className="text-sm text-gray-600 space-y-1">
+                <li>✅ 14 Serviços Customizados</li>
+                <li>✅ 50+ Mensagens Prontas</li>
+                <li>✅ Sugestões com IA</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-bold mb-2">📱 Contato</h4>
+              <p className="text-sm text-gray-600">
+                Desenvolvido com ❤️ pela Lemon CP
+              </p>
+              <p className="text-sm text-gray-600">📱 43 98423-4418</p>
+            </div>
+          </div>
+          <div className="border-t border-gray-200 pt-4 text-center text-sm text-gray-500">
+            © 2026 Lemon CP. Todos os direitos reservados.
+          </div>
         </div>
-      </div>
+      </footer>
     </div>
   );
 }

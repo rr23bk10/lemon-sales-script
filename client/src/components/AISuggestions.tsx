@@ -3,10 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Lightbulb, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import { SalesScript } from "@/lib/salesScripts";
 
 interface AISuggestionsProps {
-  currentStage: string;
-  currentMessageRole: "client" | "seller";
+  service?: SalesScript;
+  currentStage?: string;
+  currentMessageRole?: "client" | "seller";
   onSelectSuggestion: (suggestion: string) => void;
 }
 
@@ -80,8 +82,9 @@ const suggestionsByContext: Record<string, Record<string, string[]>> = {
 };
 
 export function AISuggestions({
-  currentStage,
-  currentMessageRole,
+  service,
+  currentStage = "greeting",
+  currentMessageRole = "seller",
   onSelectSuggestion,
 }: AISuggestionsProps) {
   const [isOpen, setIsOpen] = useState(false);
